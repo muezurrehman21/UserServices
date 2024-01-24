@@ -41,7 +41,27 @@ public class UserServiceImpl implements UserServices {
 
     @Override
     public List<User> getAllUser() {
-        return userRepository.findAll();
+        List<User> users =  userRepository.findAll().stream().map(user -> {
+            //fetch rating of the above user
+            //http://localhost:8083/rating/users/9a0501c3-8b56-43f0-b345-3d1d052659ec
+            Rating[] ratingObject =  restTemplate.getForObject("http://RATING-SERVICE/rating/users/" + user.getUserId(), Rating[].class);
+//          logger.info("{}", (Object) ratingObject);
+            List<Rating> ratings = Arrays.stream(ratingObject).toList();
+
+            List<Rating> ratingList = ratings.stream().map(rating -> {
+                //http://localhost:8082/hotels/4b3eaaf6-aef8-4b3a-b5e0-dac3a72e618c
+                ResponseEntity<Hotel> forEntitiy = restTemplate.getForEntity("http://HOTEL-SERVICE/hotels/" + rating.getHotelId(), Hotel.class);
+                Hotel hotel = forEntitiy.getBody();
+//            logger.info("response status code: {}", forEntitiy.getStatusCode());
+                rating.setHotel(hotel);
+                return rating;
+            }).collect(Collectors.toList());
+            user.setRatings(ratingList);
+            return user;
+        }).collect(Collectors.toList());;
+
+        return users;
+
     }
 
     @Override
@@ -50,16 +70,16 @@ public class UserServiceImpl implements UserServices {
                 .orElseThrow(()-> new ResourceNotFoundException("User with given id is not found : " + userId));
         //fetch rating of the above user
         //http://localhost:8083/rating/users/9a0501c3-8b56-43f0-b345-3d1d052659ec
-        Rating[] ratingObject =  restTemplate.getForObject("http://localhost:8083/rating/users/" + user.getUserId(), Rating[].class);
-        logger.info("{}", (Object) ratingObject);
+        Rating[] ratingObject =  restTemplate.getForObject("http://RATING-SERVICE/rating/users/" + user.getUserId(), Rating[].class);
+//        logger.info("{}", (Object) ratingObject);
 
         List<Rating> ratings = Arrays.stream(ratingObject).toList();
 
         List<Rating> ratingList = ratings.stream().map(rating -> {
             //http://localhost:8082/hotels/4b3eaaf6-aef8-4b3a-b5e0-dac3a72e618c
-            ResponseEntity<Hotel> forEntitiy = restTemplate.getForEntity("http://localhost:8082/hotels/" + rating.getHotelId(), Hotel.class);
+            ResponseEntity<Hotel> forEntitiy = restTemplate.getForEntity("http://HOTEL-SERVICE/hotels/" + rating.getHotelId(), Hotel.class);
             Hotel hotel = forEntitiy.getBody();
-            logger.info("response status code: {}", forEntitiy.getStatusCode());
+//            logger.info("response status code: {}", forEntitiy.getStatusCode());
             rating.setHotel(hotel);
             return rating;
         }).collect(Collectors.toList());
